@@ -28,26 +28,27 @@ public class GameWindow {
         gamePanel.setLocation(200, 100);
 
         JPanel logoPanel = new JPanel();
-        logoPanel.setSize(900, 811);
+        logoPanel.setSize(884, 89);
         logoPanel.setLocation(0, 0);
-        logoPanel.setBackground(Color.BLACK);
+        logoPanel.setBackground(new Color(35, 31, 30));
 
-        ImageIcon gifIcon = null;
+        ImageIcon logoName = null;
         try {
-            InputStream inputStream = GameWindow.class.getClassLoader().getResourceAsStream("resources/bg_image.jpeg");
+            InputStream inputStream = GameWindow.class.getClassLoader().getResourceAsStream("resources/logo_name.jpeg");
             if (inputStream != null) {
-                gifIcon = new ImageIcon(ImageIO.read(inputStream));
+            	logoName = new ImageIcon(ImageIO.read(inputStream));
             } else {
                 System.out.println("Error: El GIF no se pudo cargar. Verifica la ruta.");
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
+        logoPanel.setLayout(new FlowLayout(FlowLayout.CENTER, 5, 5));
 
-        JLabel gifLabel = new JLabel(gifIcon != null ? gifIcon : new ImageIcon());
-        logoPanel.add(gifLabel);
+        JLabel logoNameLabel = new JLabel(logoName != null ? logoName : new ImageIcon());
+        logoPanel.add(logoNameLabel);
 
-        frmMalaga.getContentPane().setBackground(Color.BLACK);
+        frmMalaga.getContentPane().setBackground(new Color(35, 31, 30));
 
         frmMalaga.getContentPane().add(gamePanel);
         frmMalaga.getContentPane().add(logoPanel);
