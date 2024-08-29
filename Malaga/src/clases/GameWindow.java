@@ -11,22 +11,22 @@ public class GameWindow {
     private static final int GAME_HEIGHT = 700;
 
     public static void main(String[] args) {
-
         JFrame frmMalaga = new JFrame("Juego");
         frmMalaga.setIconImage(Toolkit.getDefaultToolkit().getImage(GameWindow.class.getResource("/resources/logo_malaga.jpg")));
         frmMalaga.setTitle("Malaga");
 
         frmMalaga.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frmMalaga.setSize(900, 850);
-        frmMalaga.getContentPane().setLayout(null);
         frmMalaga.setLocationRelativeTo(null);
         frmMalaga.setResizable(false);
 
+       
         GamePanel gamePanel = new GamePanel();
         gamePanel.setSize(GAME_WIDTH, GAME_HEIGHT);
         gamePanel.setBackground(Color.GRAY);
         gamePanel.setLocation(200, 100);
 
+        
         JPanel logoPanel = new JPanel();
         logoPanel.setSize(884, 89);
         logoPanel.setLocation(0, 0);
@@ -36,7 +36,7 @@ public class GameWindow {
         try {
             InputStream inputStream = GameWindow.class.getClassLoader().getResourceAsStream("resources/logo_name.jpeg");
             if (inputStream != null) {
-            	logoName = new ImageIcon(ImageIO.read(inputStream));
+                logoName = new ImageIcon(ImageIO.read(inputStream));
             } else {
                 System.out.println("Error: La imagen no se pudo cargar correctamente.");
             }
@@ -44,21 +44,36 @@ public class GameWindow {
             e.printStackTrace();
         }
         logoPanel.setLayout(new FlowLayout(FlowLayout.CENTER, 5, 5));
-
         JLabel logoNameLabel = new JLabel(logoName != null ? logoName : new ImageIcon());
         logoPanel.add(logoNameLabel);
 
-        frmMalaga.getContentPane().setBackground(new Color(35, 31, 30));
+        
+        JPanel infoPanel = new JPanel();
+        infoPanel.setSize(900, 50);
+        infoPanel.setLocation(-85, 100);
+        infoPanel.setBackground(new Color(35, 31, 30));
+        infoPanel.setLayout(new FlowLayout(FlowLayout.RIGHT, 10, 10));
 
+        JLabel levelLabel = new JLabel("Nivel: 1");
+        levelLabel.setForeground(Color.WHITE);
+        infoPanel.add(levelLabel);
+
+        JLabel livesLabel = new JLabel("Vidas: 3");
+        livesLabel.setForeground(Color.WHITE);
+        infoPanel.add(livesLabel);
+
+        
+        frmMalaga.getContentPane().setBackground(new Color(35, 31, 30));
+        frmMalaga.getContentPane().setLayout(null);
         frmMalaga.getContentPane().add(gamePanel);
-        gamePanel.setLayout(null);
-        
-        
         frmMalaga.getContentPane().add(logoPanel);
-        
-        
+        frmMalaga.getContentPane().add(infoPanel);
 
         frmMalaga.setVisible(true);
+
+        
+        gamePanel.setLevelLabel(levelLabel);
+        gamePanel.setLivesLabel(livesLabel);
     }
 }
 

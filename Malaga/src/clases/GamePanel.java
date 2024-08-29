@@ -1,118 +1,117 @@
 package clases;
 
-import java.awt.Color;
-import java.awt.Graphics;
-import java.awt.Rectangle;
+import javax.swing.*;
+import java.awt.*;
 import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
-import javax.swing.ImageIcon;
-import javax.swing.JPanel;
-import javax.swing.Timer;
-
-class GamePanel extends JPanel {
+public class GamePanel extends JPanel {
     private static final long serialVersionUID = 1L;
-    private static final int SQUARE_SIZE = 32;
+    private static final int SQUARE_SIZE = 48;
+    private static final int PROJECTILE_SIZE = 16;
+    private static final int PROJECTILE_SPEED = 10;
+    private static final int ENEMY_SIZE = 38;
+    private static final int ENEMY_SPEED = 3;
+    private static final int ENEMY_DROP_DISTANCE = 30;
+    private static final int ENEMY_DROP_THRESHOLD = 2;
     private static final int GAME_WIDTH = 500;
     private static final int GAME_HEIGHT = 700;
     private static final int SQUARE_Y_POSITION = GAME_HEIGHT - SQUARE_SIZE - 20;
-    private static final int PROJECTILE_SIZE = 16;
-    private static final int PROJECTILE_SPEED = 10;
-    private static final int ENEMY_SIZE = 32;
-    private static final int ENEMY_SPEED = 2;
-    private static final int ENEMY_DROP_DISTANCE = 10;
-    private static final int ENEMY_DROP_THRESHOLD = 10;
+    private static final int ENEMY_SHOOT_INTERVAL = 400;
+    private static final int ENEMY_SHOOT_PROBABILITY = 4;
     
+    private JLabel levelLabel;
+    private JLabel livesLabel;
 
-    private ImageIcon backgroundGif;
+    private ImageIcon backgroundImage;
+    private ImageIcon playerImage;
+    private ImageIcon bulletImage;
+    private ImageIcon enemyImage;
+    private ImageIcon enemyBulletImage;
     
     private int squareX;
     private Timer gameTimer;
     private Timer shootTimer;
+    private Timer enemyShootTimer;
     private int moveDirection;
     private boolean canShoot;
     private boolean isShooting;
     private int enemyDropCounter = 0;
-
     private List<Rectangle> projectiles;
     private List<Enemy> enemies;
+    private List<Rectangle> enemyProjectiles;
     private int enemyDirection = ENEMY_SPEED;
+    private int level = 1;
+    private int lives = 3; 
+    private Random random = new Random();
 
     public GamePanel() {
-    	
-    	backgroundGif = new ImageIcon(getClass().getClassLoader().getResource("resources/bg.gif"));
-
-        
-        
+        setPreferredSize(new Dimension(GAME_WIDTH, GAME_HEIGHT));
         squareX = (GAME_WIDTH - SQUARE_SIZE) / 2;
         moveDirection = 0;
         canShoot = true;
         isShooting = false;
         projectiles = new ArrayList<>();
         enemies = new ArrayList<>();
+        enemyProjectiles = new ArrayList<>();
 
         setFocusable(true);
         requestFocusInWindow();
 
-        // Inicializa los enemigos
         initializeEnemies();
 
-        gameTimer = new Timer(10, new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                if (moveDirection != 0) {
-                    moveSquare(moveDirection);
-                }
-                if (isShooting) {
-                    shootProjectile();
-                }
-                updateProjectiles();
-                updateEnemies();
-                checkCollisions();
-            }
-        });
+        gameTimer = new Timer(10, this::gameLoop);
         gameTimer.start();
 
-        shootTimer = new Timer(500, new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                canShoot = true;
+        shootTimer = new Timer(500, e -> canShoot = true);
+
+        enemyShootTimer = new Timer(ENEMY_SHOOT_INTERVAL, e -> {
+            if (level > 1) {
+                shootEnemyProjectiles();
             }
         });
+        enemyShootTimer.start();
 
         addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
                 int key = e.getKeyCode();
-                if (key == KeyEvent.VK_LEFT) {
-                    moveDirection = -5;
-                } else if (key == KeyEvent.VK_RIGHT) {
-                    moveDirection = 5;
-                } else if (key == KeyEvent.VK_SPACE) {
-                    isShooting = true;
-                }
+                if (key == KeyEvent.VK_LEFT) moveDirection = -5;
+                else if (key == KeyEvent.VK_RIGHT) moveDirection = 5;
+                else if (key == KeyEvent.VK_SPACE) isShooting = true;
             }
 
             @Override
             public void keyReleased(KeyEvent e) {
                 int key = e.getKeyCode();
-                if ((key == KeyEvent.VK_LEFT && moveDirection == -5) ||
-                    (key == KeyEvent.VK_RIGHT && moveDirection == 5)) {
-                    moveDirection = 0;
-                } else if (key == KeyEvent.VK_SPACE) {
-                    isShooting = false;
-                }
+                if (key == KeyEvent.VK_LEFT && moveDirection == -5 ||
+                    key == KeyEvent.VK_RIGHT && moveDirection == 5) moveDirection = 0;
+                else if (key == KeyEvent.VK_SPACE) isShooting = false;
             }
         });
+    
+    
+    backgroundImage = new ImageIcon(getClass().getClassLoader().getResource("resources/bg.gif"));
+    
+    bulletImage = new ImageIcon(getClass().getClassLoader().getResource("resources/bullet.png"));
+    
+    playerImage = new ImageIcon(getClass().getClassLoader().getResource("resources/player.png"));
+    
+    enemyImage = new ImageIcon(getClass().getClassLoader().getResource("resources/enemigoVioleta.png"));
+    
+    enemyBulletImage = new ImageIcon(getClass().getClassLoader().getResource("resources/enemy_bullet.png"));
+    
     }
 
+
     private void initializeEnemies() {
-        int rows = 3; 
-        int cols = 8; 
+        enemies.clear();
+        int rows = level == 1 ? 3 : 3;
+        int cols = level == 1 ? 6 : 6;
         int xOffset = 10;
         int yOffset = 10;
 
@@ -141,15 +140,28 @@ class GamePanel extends JPanel {
         }
     }
 
-    private void updateProjectiles() {
-        for (int i = 0; i < projectiles.size(); i++) {
-            Rectangle projectile = projectiles.get(i);
-            projectile.y -= PROJECTILE_SPEED;
-            if (projectile.y + PROJECTILE_SIZE < 0) {
-                projectiles.remove(i);
-                i--;
+    private void shootEnemyProjectiles() {
+        for (Enemy enemy : enemies) {
+            if (random.nextInt(100) < ENEMY_SHOOT_PROBABILITY) {
+                int projectileX = enemy.x + (ENEMY_SIZE - PROJECTILE_SIZE) / 2;
+                int projectileY = enemy.y + ENEMY_SIZE;
+                enemyProjectiles.add(new Rectangle(projectileX, projectileY, PROJECTILE_SIZE, PROJECTILE_SIZE));
             }
         }
+    }
+
+    private void updateProjectiles() {
+        projectiles.removeIf(projectile -> {
+            projectile.y -= PROJECTILE_SPEED;
+            return projectile.y + PROJECTILE_SIZE < 0;
+        });
+    }
+
+    private void updateEnemyProjectiles() {
+        enemyProjectiles.removeIf(projectile -> {
+            projectile.y += PROJECTILE_SPEED;
+            return projectile.y > GAME_HEIGHT;
+        });
     }
 
     private void updateEnemies() {
@@ -157,9 +169,7 @@ class GamePanel extends JPanel {
 
         for (Enemy enemy : enemies) {
             enemy.x += enemyDirection;
-            if (enemy.x <= 0 || enemy.x + ENEMY_SIZE >= GAME_WIDTH) {
-                hitEdge = true;
-            }
+            if (enemy.x <= 0 || enemy.x + ENEMY_SIZE >= GAME_WIDTH) hitEdge = true;
         }
 
         if (hitEdge) {
@@ -175,42 +185,93 @@ class GamePanel extends JPanel {
         }
         repaint();
     }
+    
+    public void setLevelLabel(JLabel levelLabel) {
+        this.levelLabel = levelLabel;
+    }
 
-    private void checkCollisions() {
-        for (int i = 0; i < projectiles.size(); i++) {
-            Rectangle projectile = projectiles.get(i);
-            for (int j = 0; j < enemies.size(); j++) {
-                Enemy enemy = enemies.get(j);
-                if (projectile.intersects(enemy)) {
-                    projectiles.remove(i);
-                    enemies.remove(j);
-                    i--;
-                    break;
-                }
-            }
+    public void setLivesLabel(JLabel livesLabel) {
+        this.livesLabel = livesLabel;
+    }
+
+    private void updateLabels() {
+        if (levelLabel != null) {
+            levelLabel.setText("Nivel: " + level);
+        }
+        if (livesLabel != null) {
+            livesLabel.setText("Vidas: " + lives);
         }
     }
+    
+    
+
+    private void checkCollisions() {
+    	projectiles.removeIf(projectile -> {
+            boolean hit = enemies.removeIf(enemy -> projectile.intersects(enemy));
+            return hit;
+        });
+
+        enemyProjectiles.removeIf(projectile -> {
+            boolean hit = projectile.intersects(new Rectangle(squareX, SQUARE_Y_POSITION, SQUARE_SIZE, SQUARE_SIZE));
+            if (hit) {
+                lives--; 
+                if (lives <= 0) {
+                    JOptionPane.showMessageDialog(this, "¡Has perdido! Fin del juego.");
+                    System.exit(0);
+                }
+                updateLabels(); 
+            }
+            return hit;
+        });
+    }
+
+    private void gameLoop(ActionEvent e) {
+        if (moveDirection != 0) moveSquare(moveDirection);
+        if (isShooting) shootProjectile();
+        updateProjectiles();
+        updateEnemyProjectiles();
+        updateEnemies();
+        checkCollisions();
+
+        if (enemies.isEmpty()) {
+            advanceToNextLevel();
+        }
+    }
+
+    private void advanceToNextLevel() {
+    	level++;
+        if (level <= 5) {
+            initializeEnemies();
+            System.out.println("Nivel " + level);
+            updateLabels(); 
+        } else {
+            JOptionPane.showMessageDialog(this, "¡Has ganado el juego!");
+            System.exit(0);
+        }
+    }
+    
 
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
-        
-        if (backgroundGif != null) {
-            g.drawImage(backgroundGif.getImage(), 0, 0, getWidth(), getHeight(), this);
+        if (backgroundImage != null) {
+            g.drawImage(backgroundImage.getImage(), 0, 0, getWidth(), getHeight(), this);
         }
-        
-        
-        g.setColor(Color.WHITE);
-        g.fillRect(squareX, SQUARE_Y_POSITION, SQUARE_SIZE, SQUARE_SIZE);
+
+        g.drawImage(playerImage.getImage(), squareX, SQUARE_Y_POSITION, SQUARE_SIZE, SQUARE_SIZE, this);
 
         for (Rectangle projectile : projectiles) {
-            g.fillRect(projectile.x, projectile.y, projectile.width, projectile.height);
+            g.drawImage(bulletImage.getImage(), projectile.x, projectile.y, projectile.width, projectile.height, this);
         }
 
-        g.setColor(Color.RED);
-        for (Enemy enemy : enemies) {
-            g.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+        for (Rectangle enemyProjectile : enemyProjectiles) {
+            g.drawImage(enemyBulletImage.getImage(), enemyProjectile.x, enemyProjectile.y, enemyProjectile.width, enemyProjectile.height, this);  
         }
+
+        for (Enemy enemy : enemies) {
+            g.drawImage(enemyImage.getImage(), enemy.x, enemy.y, enemy.width, enemy.height, this);
+        }
+
     }
 
     class Enemy extends Rectangle {
@@ -221,4 +282,3 @@ class GamePanel extends JPanel {
         }
     }
 }
-
