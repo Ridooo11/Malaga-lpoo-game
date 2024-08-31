@@ -58,10 +58,6 @@ public class GameWindow {
         levelLabel.setForeground(Color.WHITE);
         infoPanel.add(levelLabel);
 
-        JLabel livesLabel = new JLabel("Vidas: 3");
-        livesLabel.setForeground(Color.WHITE);
-        infoPanel.add(livesLabel);
-
         
         frmMalaga.getContentPane().setBackground(new Color(35, 31, 30));
         frmMalaga.getContentPane().setLayout(null);
@@ -73,7 +69,6 @@ public class GameWindow {
 
         
         gamePanel.setLevelLabel(levelLabel);
-        gamePanel.setLivesLabel(livesLabel);
     }
 }
 
