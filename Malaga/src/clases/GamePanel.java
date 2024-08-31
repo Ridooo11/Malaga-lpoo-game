@@ -22,9 +22,9 @@ public class GamePanel extends JPanel {
     private static final int GAME_HEIGHT = 700;
     private static final int SQUARE_Y_POSITION = GAME_HEIGHT - SQUARE_SIZE - 20;
     private static final int ENEMY_SHOOT_INTERVAL = 400;
-    private static final int ENEMY_SHOOT_PROBABILITY = 4;
-    private static final int CAMICASE_SPEED = 8;
-    private static final int CAMICASE_SPAWN_INTERVAL = 1300;
+    private static final int ENEMY_SHOOT_PROBABILITY = 5;
+    private static final int CAMICASE_SPEED = 7;
+    private static final int CAMICASE_SPAWN_INTERVAL = 1100;
     
     
     private static final int MAX_ENEMY_Y =  50 + SQUARE_Y_POSITION - ENEMY_SIZE;
@@ -58,6 +58,7 @@ public class GamePanel extends JPanel {
     private int level = 1;
     private int lives = 3; 
     private Random random = new Random();
+    int hitsToDestroy;
 
     public GamePanel() {
         setPreferredSize(new Dimension(GAME_WIDTH, GAME_HEIGHT));
@@ -88,7 +89,7 @@ public class GamePanel extends JPanel {
         enemyShootTimer.start();
         
         camicaseSpawnTimer = new Timer(CAMICASE_SPAWN_INTERVAL, e -> {
-            if (level == 3) {
+            if (level >= 3) {
                 spawnCamicase();
             }
         });
@@ -97,7 +98,7 @@ public class GamePanel extends JPanel {
         addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
-                if (gameOver) { // Si el juego ha terminado, solo se reinicia si se presiona Enter
+                if (gameOver) { 
                     if (e.getKeyCode() == KeyEvent.VK_ENTER) {
                         resetGame();
                     }
@@ -141,6 +142,7 @@ public class GamePanel extends JPanel {
     private void initializeEnemies() {
         enemies.clear();
         camicases.clear();
+        hitsToDestroy = (level >= 4) ? 2 : 1;
         int rows = level == 1 ? 3 : (level == 2 ? 4 : 4);
         int cols = level == 1 ? 6 : (level == 2 ? 5 : 6);
         int xOffset = 10;
@@ -150,16 +152,16 @@ public class GamePanel extends JPanel {
             for (int col = 0; col < cols; col++) {
                 int x = xOffset + col * (ENEMY_SIZE + 10);
                 int y = yOffset + row * (ENEMY_SIZE + 10);
-                enemies.add(new Enemy(x, y, ENEMY_SIZE, ENEMY_SIZE));
+                enemies.add(new Enemy(x, y, ENEMY_SIZE, ENEMY_SIZE, hitsToDestroy));
             }
         }
     }
 
     private void spawnCamicase() {
-        if (camicases.size() < 5) { // Limitar el número máximo de camicases en pantalla
+        if (camicases.size() < 5) { 
             int camicaseX = random.nextInt(GAME_WIDTH - ENEMY_SIZE);
-            int camicaseY = -ENEMY_SIZE; // Iniciar fuera de la pantalla
-            camicases.add(new Camicase(camicaseX, camicaseY, ENEMY_SIZE, ENEMY_SIZE));
+            int camicaseY = -ENEMY_SIZE; 
+            camicases.add(new Camicase(camicaseX, camicaseY, ENEMY_SIZE, ENEMY_SIZE, hitsToDestroy));
         }
     }
 
@@ -257,64 +259,88 @@ public class GamePanel extends JPanel {
     private void checkCollisions() {
         List<Enemy> enemiesToRemove = new ArrayList<>();
         List<Rectangle> projectilesToRemove = new ArrayList<>();
+        List<Camicase> camicasesToRemove = new ArrayList<>();
+        List<Rectangle> enemyProjectilesToRemove = new ArrayList<>();
+
+        Rectangle playerBounds = new Rectangle(squareX, SQUARE_Y_POSITION, SQUARE_SIZE, SQUARE_SIZE);
+
+        // Verificar colisiones entre proyectiles del jugador y camicases
+        for (Rectangle projectile : projectiles) {
+            for (Camicase camicase : camicases) {
+                Rectangle camicaseBounds = new Rectangle(camicase.x, camicase.y, camicase.width, camicase.height);
+                if (projectile.intersects(camicaseBounds)) {
+                    camicase.hit();
+                    projectilesToRemove.add(projectile);
+                    if (camicase.isDestroyed()) {
+                        camicasesToRemove.add(camicase);
+                    }
+                }
+            }
+        }
 
         // Verificar colisiones entre proyectiles del jugador y enemigos
         for (Rectangle projectile : projectiles) {
             for (Enemy enemy : enemies) {
                 Rectangle enemyBounds = new Rectangle(enemy.x, enemy.y, enemy.width, enemy.height);
                 if (projectile.intersects(enemyBounds)) {
-                    enemiesToRemove.add(enemy);
                     projectilesToRemove.add(projectile);
+                    enemy.hit();
+                    if (enemy.isDestroyed()) {
+                        enemiesToRemove.add(enemy);
+                    }
                 }
             }
         }
 
-        enemies.removeAll(enemiesToRemove);
-        projectiles.removeAll(projectilesToRemove);
-
-        List<Rectangle> enemyProjectilesToRemove = new ArrayList<>();
-
         // Verificar colisiones entre proyectiles enemigos y el jugador
         for (Rectangle projectile : enemyProjectiles) {
-            Rectangle playerBounds = new Rectangle(squareX, SQUARE_Y_POSITION, SQUARE_SIZE, SQUARE_SIZE);
             if (projectile.intersects(playerBounds)) {
                 enemyProjectilesToRemove.add(projectile);
                 loseLife();
             }
         }
 
-        enemyProjectiles.removeAll(enemyProjectilesToRemove);
-
-        List<Camicase> camicasesToRemove = new ArrayList<>();
-
         // Verificar colisiones entre camicases y el jugador
         for (Camicase camicase : camicases) {
             Rectangle camicaseBounds = new Rectangle(camicase.x, camicase.y, camicase.width, camicase.height);
-            Rectangle playerBounds = new Rectangle(squareX, SQUARE_Y_POSITION, SQUARE_SIZE, SQUARE_SIZE);
             if (camicaseBounds.intersects(playerBounds)) {
-                camicasesToRemove.add(camicase);
+                camicase.hit();
+                if (camicase.isDestroyed()) {
+                    camicasesToRemove.add(camicase);
+                }
                 loseLife();
             }
         }
 
-        camicases.removeAll(camicasesToRemove);
-
-        // Verificar colisiones directas entre el jugador y los enemigos
-        Rectangle playerBounds = new Rectangle(squareX, SQUARE_Y_POSITION, SQUARE_SIZE, SQUARE_SIZE);
+        // Verificar colisiones entre enemigos y el jugador
         for (Enemy enemy : enemies) {
             Rectangle enemyBounds = new Rectangle(enemy.x, enemy.y, enemy.width, enemy.height);
             if (playerBounds.intersects(enemyBounds)) {
                 loseLife();
-                enemies.remove(enemy);
-                break; // Solo pierde una vida por colisión directa
+                enemiesToRemove.add(enemy);
+                break;
             }
         }
 
-        // Verificar si el jugador ha eliminado todos los enemigos y camicases
-        if (enemies.isEmpty() && camicases.isEmpty()) {
+        
+        enemies.removeAll(enemiesToRemove);
+        camicases.removeAll(camicasesToRemove);
+        projectiles.removeAll(projectilesToRemove);
+        enemyProjectiles.removeAll(enemyProjectilesToRemove);
+
+        
+        if (enemies.isEmpty()) {
             nextLevel();
         }
+
+        
+        if (level >= 4) {
+            for (Camicase camicase : camicases) {
+                camicase.shootDiagonal(enemyProjectiles);
+            }
+        }
     }
+
 
     private void loseLife() {
         lives--;
@@ -437,23 +463,62 @@ public class GamePanel extends JPanel {
 
     private static class Enemy {
         int x, y, width, height;
+        int hitsToDestroy;
 
-        public Enemy(int x, int y, int width, int height) {
+        public Enemy(int x, int y, int width, int height, int hitsToDestroy) {
             this.x = x;
             this.y = y;
             this.width = width;
             this.height = height;
+            this.hitsToDestroy = hitsToDestroy;
+        }
+
+        public void hit() {
+            hitsToDestroy--;
+        }
+
+        public boolean isDestroyed() {
+            return hitsToDestroy <= 0;
         }
     }
 
     private static class Camicase {
         int x, y, width, height;
+        int hitsToDestroy;
+        int shotsReceived; // Para contar los disparos recibidos
 
-        public Camicase(int x, int y, int width, int height) {
+        public Camicase(int x, int y, int width, int height, int hitsToDestroy) {
             this.x = x;
             this.y = y;
             this.width = width;
             this.height = height;
+            this.hitsToDestroy = hitsToDestroy;
+            this.shotsReceived = 0; // Inicializa el contador de disparos
+        }
+
+        public void hit() {
+            shotsReceived++;
+            if (shotsReceived >= 2) { // Si recibe 2 disparos, se destruye
+                hitsToDestroy--;
+                shotsReceived = 0; // Reinicia el contador para el siguiente camicase
+            }
+        }
+
+        public boolean isDestroyed() {
+            return hitsToDestroy <= 0;
+        }
+
+        public void shootDiagonal(List<Rectangle> enemyProjectiles) {
+            int projectileX1 = x + (width - PROJECTILE_SIZE) / 2 - 10;
+            int projectileX2 = x + (width - PROJECTILE_SIZE) / 2 + 10;
+            int projectileY = y + height;
+
+            Rectangle projectile1 = new Rectangle(projectileX1, projectileY, PROJECTILE_SIZE, PROJECTILE_SIZE);
+            Rectangle projectile2 = new Rectangle(projectileX2, projectileY, PROJECTILE_SIZE, PROJECTILE_SIZE);
+
+            enemyProjectiles.add(projectile1);
+            enemyProjectiles.add(projectile2);
         }
     }
+
 }
