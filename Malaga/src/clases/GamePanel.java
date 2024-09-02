@@ -58,7 +58,6 @@ public class GamePanel extends JPanel {
     private int level = 1;
     private int lives = 3; 
     private Random random = new Random();
-    int hitsToDestroy;
 
     public GamePanel() {
         setPreferredSize(new Dimension(GAME_WIDTH, GAME_HEIGHT));
@@ -142,7 +141,6 @@ public class GamePanel extends JPanel {
     private void initializeEnemies() {
         enemies.clear();
         camicases.clear();
-        hitsToDestroy = (level >= 4) ? 2 : 1;
         int rows = level == 1 ? 3 : (level == 2 ? 4 : 4);
         int cols = level == 1 ? 6 : (level == 2 ? 5 : 6);
         int xOffset = 10;
@@ -152,7 +150,7 @@ public class GamePanel extends JPanel {
             for (int col = 0; col < cols; col++) {
                 int x = xOffset + col * (ENEMY_SIZE + 10);
                 int y = yOffset + row * (ENEMY_SIZE + 10);
-                enemies.add(new Enemy(x, y, ENEMY_SIZE, ENEMY_SIZE, hitsToDestroy));
+                enemies.add(new Enemy(x, y, ENEMY_SIZE, ENEMY_SIZE));
             }
         }
     }
@@ -161,7 +159,7 @@ public class GamePanel extends JPanel {
         if (camicases.size() < 5) { 
             int camicaseX = random.nextInt(GAME_WIDTH - ENEMY_SIZE);
             int camicaseY = -ENEMY_SIZE; 
-            camicases.add(new Camicase(camicaseX, camicaseY, ENEMY_SIZE, ENEMY_SIZE, hitsToDestroy));
+            camicases.add(new Camicase(camicaseX, camicaseY, ENEMY_SIZE, ENEMY_SIZE));
         }
     }
 
@@ -219,7 +217,6 @@ public class GamePanel extends JPanel {
 
             if (enemyDropCounter >= ENEMY_DROP_THRESHOLD) {
                 for (Enemy enemy : enemies) {
-                    // Verificar si el siguiente movimiento hacia abajo excede el límite
                     if (enemy.y + ENEMY_DROP_DISTANCE <= MAX_ENEMY_Y) {
                         enemy.y += ENEMY_DROP_DISTANCE;
                     } else {
@@ -264,7 +261,6 @@ public class GamePanel extends JPanel {
 
         Rectangle playerBounds = new Rectangle(squareX, SQUARE_Y_POSITION, SQUARE_SIZE, SQUARE_SIZE);
 
-        // Verificar colisiones entre proyectiles del jugador y camicases
         for (Rectangle projectile : projectiles) {
             for (Camicase camicase : camicases) {
                 Rectangle camicaseBounds = new Rectangle(camicase.x, camicase.y, camicase.width, camicase.height);
@@ -278,7 +274,7 @@ public class GamePanel extends JPanel {
             }
         }
 
-        // Verificar colisiones entre proyectiles del jugador y enemigos
+       
         for (Rectangle projectile : projectiles) {
             for (Enemy enemy : enemies) {
                 Rectangle enemyBounds = new Rectangle(enemy.x, enemy.y, enemy.width, enemy.height);
@@ -292,7 +288,7 @@ public class GamePanel extends JPanel {
             }
         }
 
-        // Verificar colisiones entre proyectiles enemigos y el jugador
+ 
         for (Rectangle projectile : enemyProjectiles) {
             if (projectile.intersects(playerBounds)) {
                 enemyProjectilesToRemove.add(projectile);
@@ -300,7 +296,7 @@ public class GamePanel extends JPanel {
             }
         }
 
-        // Verificar colisiones entre camicases y el jugador
+        
         for (Camicase camicase : camicases) {
             Rectangle camicaseBounds = new Rectangle(camicase.x, camicase.y, camicase.width, camicase.height);
             if (camicaseBounds.intersects(playerBounds)) {
@@ -312,7 +308,7 @@ public class GamePanel extends JPanel {
             }
         }
 
-        // Verificar colisiones entre enemigos y el jugador
+        
         for (Enemy enemy : enemies) {
             Rectangle enemyBounds = new Rectangle(enemy.x, enemy.y, enemy.width, enemy.height);
             if (playerBounds.intersects(enemyBounds)) {
@@ -336,7 +332,7 @@ public class GamePanel extends JPanel {
         
         if (level >= 4) {
             for (Camicase camicase : camicases) {
-                camicase.shootDiagonal(enemyProjectiles);
+                camicase.shootLaser(enemyProjectiles);
             }
         }
     }
@@ -362,7 +358,7 @@ public class GamePanel extends JPanel {
         shootTimer.stop();
         enemyShootTimer.stop();
         camicaseSpawnTimer.stop();
-        repaint(); // Llamar a repaint para mostrar la pantalla de Game Over
+        repaint(); 
     }
 
     private void resetGame() {
@@ -465,12 +461,11 @@ public class GamePanel extends JPanel {
         int x, y, width, height;
         int hitsToDestroy;
 
-        public Enemy(int x, int y, int width, int height, int hitsToDestroy) {
+        public Enemy(int x, int y, int width, int height) {
             this.x = x;
             this.y = y;
             this.width = width;
             this.height = height;
-            this.hitsToDestroy = hitsToDestroy;
         }
 
         public void hit() {
@@ -482,42 +477,25 @@ public class GamePanel extends JPanel {
         }
     }
 
-    private static class Camicase {
-        int x, y, width, height;
-        int hitsToDestroy;
-        int shotsReceived; // Para contar los disparos recibidos
+    private static class Camicase extends Enemy {
 
-        public Camicase(int x, int y, int width, int height, int hitsToDestroy) {
-            this.x = x;
-            this.y = y;
-            this.width = width;
-            this.height = height;
-            this.hitsToDestroy = hitsToDestroy;
-            this.shotsReceived = 0; // Inicializa el contador de disparos
+        public Camicase(int x, int y, int width, int height) {
+        	super(x, y, width, height);
         }
 
-        public void hit() {
-            shotsReceived++;
-            if (shotsReceived >= 2) { // Si recibe 2 disparos, se destruye
-                hitsToDestroy--;
-                shotsReceived = 0; // Reinicia el contador para el siguiente camicase
-            }
-        }
+        public void shootLaser(List<Rectangle> enemyProjectiles) {
+        	int laserWidth = PROJECTILE_SIZE;
+            int laserHeight = 2 * PROJECTILE_SIZE; 
 
-        public boolean isDestroyed() {
-            return hitsToDestroy <= 0;
-        }
-
-        public void shootDiagonal(List<Rectangle> enemyProjectiles) {
-            int projectileX1 = x + (width - PROJECTILE_SIZE) / 2 - 10;
-            int projectileX2 = x + (width - PROJECTILE_SIZE) / 2 + 10;
+            int projectileX1 = x + (width - laserWidth) / 2 - 10;
+            int projectileX2 = x + (width - laserWidth) / 2 + 10;
             int projectileY = y + height;
 
-            Rectangle projectile1 = new Rectangle(projectileX1, projectileY, PROJECTILE_SIZE, PROJECTILE_SIZE);
-            Rectangle projectile2 = new Rectangle(projectileX2, projectileY, PROJECTILE_SIZE, PROJECTILE_SIZE);
+            Rectangle laser1 = new Rectangle(projectileX1, projectileY, laserWidth, laserHeight);
+            Rectangle laser2 = new Rectangle(projectileX2, projectileY, laserWidth, laserHeight);
 
-            enemyProjectiles.add(projectile1);
-            enemyProjectiles.add(projectile2);
+            enemyProjectiles.add(laser1);
+            enemyProjectiles.add(laser2);
         }
     }
 
