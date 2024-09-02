@@ -3,6 +3,7 @@ package clases;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.util.ArrayList;
@@ -38,8 +39,9 @@ public class GamePanel extends JPanel {
     private ImageIcon enemyBulletImage;
     private ImageIcon camicaseImage;
     private ImageIcon corazonImage;
-    
-    private boolean gameOver = false;
+    private ImageIcon explosionImage;
+   
+
     
     private int squareX;
     private Timer gameTimer;
@@ -58,6 +60,16 @@ public class GamePanel extends JPanel {
     private int level = 1;
     private int lives = 3; 
     private Random random = new Random();
+    private boolean gameOver = false;
+    
+    private boolean isPlayerImmune = false;
+    private boolean isPlayerVisible = true;
+    private Timer immunityTimer;
+    private Timer blinkTimer;
+    
+    public boolean isExploding = false;
+    public int explosionX, explosionY;
+    public boolean showPlayer = true;
 
     public GamePanel() {
         setPreferredSize(new Dimension(GAME_WIDTH, GAME_HEIGHT));
@@ -73,22 +85,33 @@ public class GamePanel extends JPanel {
         setFocusable(true);
         requestFocusInWindow();
 
+        
+     
         initializeEnemies();
+        
 
         gameTimer = new Timer(10, this::gameLoop);
         gameTimer.start();
+        
+        shootTimer = new Timer(500, new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                canShoot = true;
+            }
+        });
+        
 
         shootTimer = new Timer(500, e -> canShoot = true);
 
         enemyShootTimer = new Timer(ENEMY_SHOOT_INTERVAL, e -> {
-            if (level > 1) {
+            if (level > 1 && level != 5) {
                 shootEnemyProjectiles();
             }
         });
         enemyShootTimer.start();
         
         camicaseSpawnTimer = new Timer(CAMICASE_SPAWN_INTERVAL, e -> {
-            if (level >= 3) {
+            if (level >= 3 && level != 5) {
                 spawnCamicase();
             }
         });
@@ -119,6 +142,24 @@ public class GamePanel extends JPanel {
                 }
             }
         });
+        
+        immunityTimer = new Timer(1500, new ActionListener() {
+    		@Override
+    		public void actionPerformed(ActionEvent e) {
+    			isPlayerImmune = false;
+    			blinkTimer.stop();
+    			isPlayerVisible = true;
+    		}
+    	});
+    	
+    	immunityTimer.setRepeats(false);
+
+    	blinkTimer = new Timer(100, new ActionListener() {
+    		@Override
+    		public void actionPerformed(ActionEvent e) {
+    			isPlayerVisible = !isPlayerVisible;
+    		}
+    	});
     
     
     backgroundImage = new ImageIcon(getClass().getClassLoader().getResource("resources/bg.gif"));
@@ -135,6 +176,9 @@ public class GamePanel extends JPanel {
     
     corazonImage = new ImageIcon(getClass().getClassLoader().getResource("resources/corazon.png"));
     
+    explosionImage = new ImageIcon(getClass().getClassLoader().getResource("resources/explosion.gif"));
+    
+    
 }
 
 
@@ -143,6 +187,7 @@ public class GamePanel extends JPanel {
         camicases.clear();
         int rows = level == 1 ? 3 : (level == 2 ? 4 : 4);
         int cols = level == 1 ? 6 : (level == 2 ? 5 : 6);
+        
         int xOffset = 10;
         int yOffset = 40;
 
@@ -162,6 +207,7 @@ public class GamePanel extends JPanel {
             camicases.add(new Camicase(camicaseX, camicaseY, ENEMY_SIZE, ENEMY_SIZE));
         }
     }
+
 
     private void moveSquare(int dx) {
         squareX += dx;
@@ -228,14 +274,15 @@ public class GamePanel extends JPanel {
         }
 
         repaint();
+   
     }
+
+    	
     
     public void setLevelLabel(JLabel levelLabel) {
         this.levelLabel = levelLabel;
     }
-
-    
-
+  
     private void updateLabels() {
         if (levelLabel != null) {
             levelLabel.setText("Nivel: " + level);
@@ -335,6 +382,43 @@ public class GamePanel extends JPanel {
                 camicase.shootLaser(enemyProjectiles);
             }
         }
+        
+        if (!isPlayerImmune) {
+        	for (int i = 0; i < enemyProjectiles.size(); i++) {
+                Rectangle projectile = enemyProjectiles.get(i);
+                if (projectile.intersects(new Rectangle(squareX, SQUARE_Y_POSITION, SQUARE_SIZE, SQUARE_SIZE))) { 
+                    enemyProjectiles.remove(i);
+                    i--;
+
+                    loseLife(); 
+
+                    if (lives <= 0) {
+                        gameOver();
+                    } else {
+                        startPlayerImmunity();
+                    }
+                    break; 
+                }
+            }
+        }
+    }
+    
+   
+    
+    private void triggerExplosion(int x, int y) {
+        isExploding = true;
+        explosionX = x;
+        explosionY = y;
+
+        
+        Timer explosionTimer = new Timer(300, new ActionListener() { 
+            @Override
+            public void actionPerformed(ActionEvent e) {
+            	isExploding = false;
+            }
+        });
+        explosionTimer.setRepeats(false);
+        explosionTimer.start();
     }
 
 
@@ -342,15 +426,24 @@ public class GamePanel extends JPanel {
         lives--;
         if (lives <= 0) {
             gameOver();
+            triggerExplosion(squareX, SQUARE_Y_POSITION);
+        } else {
+            startPlayerImmunity();  
         }
-        updateLabels();
+    }
+    
+    private void startPlayerImmunity() {
+        isPlayerImmune = true;
+        immunityTimer.restart();
+        blinkTimer.start();
     }
 
     private void nextLevel() {
         level++;
-        initializeEnemies();
+        initializeEnemies(); 
         updateLabels();
     }
+
 
     private void gameOver() {
         gameOver = true;
@@ -358,6 +451,7 @@ public class GamePanel extends JPanel {
         shootTimer.stop();
         enemyShootTimer.stop();
         camicaseSpawnTimer.stop();
+        showPlayer = false;
         repaint(); 
     }
 
@@ -379,6 +473,7 @@ public class GamePanel extends JPanel {
         shootTimer.start();
         enemyShootTimer.start();
         camicaseSpawnTimer.start();
+        showPlayer = true;
     }
 
     private void gameLoop(ActionEvent e) {
@@ -393,6 +488,8 @@ public class GamePanel extends JPanel {
             repaint();
         }
     }
+    
+    
 
     @Override
     protected void paintComponent(Graphics g) {
@@ -400,12 +497,16 @@ public class GamePanel extends JPanel {
 
         
         g.drawImage(backgroundImage.getImage(), 0, 0, GAME_WIDTH, GAME_HEIGHT, this);
+        
 
-      
-        g.drawImage(playerImage.getImage(), squareX, SQUARE_Y_POSITION, SQUARE_SIZE, SQUARE_SIZE, this);
+        if (isPlayerVisible && showPlayer) {
+            g.drawImage(playerImage.getImage(), squareX, SQUARE_Y_POSITION, SQUARE_SIZE, SQUARE_SIZE, this);
+        }
+        
+        if (isExploding) {
+            g.drawImage(explosionImage.getImage(), explosionX, explosionY, SQUARE_SIZE, SQUARE_SIZE, this);
+        }
 
-  
-        g.setColor(Color.YELLOW);
         for (Rectangle projectile : projectiles) {
             g.drawImage(bulletImage.getImage(), projectile.x, projectile.y, projectile.width, projectile.height, this);
         }
@@ -416,7 +517,6 @@ public class GamePanel extends JPanel {
         }
 
         
-        g.setColor(Color.RED);
         for (Rectangle projectile : enemyProjectiles) {
             g.drawImage(enemyBulletImage.getImage(), projectile.x, projectile.y, projectile.width, projectile.height, this);
         }
@@ -427,8 +527,8 @@ public class GamePanel extends JPanel {
         }
         
         for (int i = 0; i < lives; i++) {
-            int heartX = GAME_WIDTH - (i + 1) * 40;
-            int heartY = 10;
+        	int heartX = 10 + i * 40; 
+            int heartY = 10; 
             g.drawImage(corazonImage.getImage(), heartX, heartY, 30, 30, null);
         }
 
@@ -498,5 +598,5 @@ public class GamePanel extends JPanel {
             enemyProjectiles.add(laser2);
         }
     }
-
 }
+
