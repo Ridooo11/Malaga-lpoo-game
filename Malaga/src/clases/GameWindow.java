@@ -48,27 +48,14 @@ public class GameWindow {
         logoPanel.add(logoNameLabel);
 
         
-        JPanel infoPanel = new JPanel();
-        infoPanel.setSize(900, 50);
-        infoPanel.setLocation(-85, 100);
-        infoPanel.setBackground(new Color(35, 31, 30));
-        infoPanel.setLayout(new FlowLayout(FlowLayout.RIGHT, 10, 10));
-
-        JLabel levelLabel = new JLabel("Nivel: 1");
-        levelLabel.setForeground(Color.WHITE);
-        infoPanel.add(levelLabel);
-
-        
         frmMalaga.getContentPane().setBackground(new Color(35, 31, 30));
         frmMalaga.getContentPane().setLayout(null);
         frmMalaga.getContentPane().add(gamePanel);
         frmMalaga.getContentPane().add(logoPanel);
-        frmMalaga.getContentPane().add(infoPanel);
-
         frmMalaga.setVisible(true);
 
         
-        gamePanel.setLevelLabel(levelLabel);
+        
     }
 }
 
